@@ -2,7 +2,7 @@
 //!
 //! Framehop is a stack frame unwinder written in 100% Rust. It produces high quality stacks at high speed, on multiple platforms and architectures, without an expensive pre-processing step for unwind information. This makes it suitable for sampling profilers.
 //!
-//! It currently supports unwinding x86_64 and aarch64, with unwind information formats commonly used on Windows, macOS, Linux and Android.
+//! It currently supports unwinding x86_64 and aarch64, with unwind information formats commonly used on Windows, macOS, Linux and Android. It also has an initial LoongArch64 implementation for Linux / DWARF unwinding.
 //!
 //! You give framehop register values, stack memory and unwind data, and framehop produces a list of return addresses.
 //!
@@ -28,7 +28,7 @@
 //!    - DWARF CFI in `.debug_frame`
 //!    - PE unwind info in `.pdata`, `.rdata` and `.xdata` (for Windows x86_64)
 //!  - It supports correct unwinding even when the program is interrupted inside a function prologue or epilogue. On macOS, it has to analyze assembly instructions in order to do this.
-//!  - On x86_64 and aarch64, it falls back to frame pointer unwinding if it cannot find unwind information for an address.
+//!  - On x86_64, aarch64 and LoongArch64, it falls back to frame pointer unwinding if it cannot find unwind information for an address.
 //!  - It caches the unwind rule for each address in a fixed-size cache, so that repeated unwinding from the same address is even faster.
 //!  - It generates binary search indexes for unwind information formats which don't have them. Specifically, for `.debug_frame` and for `.eh_frame` without `.eh_frame_hdr`.
 //!  - It does a reasonable job of detecting the end of the stack, so that you can differentiate between properly terminated stacks and prematurely truncated stacks.
@@ -39,7 +39,7 @@
 //!
 //! Framehop achieves high speed in the following ways:
 //!
-//!  1. It only recovers registers which are needed for computing return addresses. On x86_64 that's `rip`, `rsp` and `rbp`, and on aarch64 that's `lr`, `sp` and `fp`. All other registers are not needed - in theory they could be used as inputs to DWARF CFI expressions, but in practice they are not.
+//!  1. It only recovers registers which are needed for computing return addresses. On x86_64 that's `rip`, `rsp` and `rbp`, on aarch64 that's `lr`, `sp` and `fp`, and on LoongArch64 that's `ra`, `sp` and `fp`. All other registers are not needed - in theory they could be used as inputs to DWARF CFI expressions, but in practice they are not.
 //!  2. It uses zero-copy parsing wherever possible. For example, the bytes in `__unwind_info` are only accessed during unwinding, and the binary search happens right inside the original `__unwind_info` memory. For DWARF unwinding, framehop uses the excellent [`gimli` crate](https://github.com/gimli-rs/gimli/), which was written with performance in mind.
 //!  3. It uses binary search to find the correct unwind rule in all supported unwind information formats. For formats without an built-in index, it creates an index when the module is added.
 //!  4. It caches unwind rules based on address. In practice, the 509-slot cache achieves a hit rate of around 80% on complicated code like Firefox (with the cache being shared across all Firefox processes). When profiling simpler applications, the hit rate is likely much higher.
@@ -134,6 +134,8 @@ mod unwinder;
 
 /// Types for unwinding on the aarch64 CPU architecture.
 pub mod aarch64;
+/// Types for unwinding on the LoongArch64 CPU architecture.
+pub mod loongarch64;
 /// Types for unwinding on the x86_64 CPU architecture.
 pub mod x86_64;
 
@@ -154,6 +156,16 @@ pub type UnwindRegsNative = aarch64::UnwindRegsAarch64;
 /// The unwinder type for the native CPU architecture.
 #[cfg(target_arch = "aarch64")]
 pub type UnwinderNative<D, P> = aarch64::UnwinderAarch64<D, P>;
+
+/// The unwinder cache for the native CPU architecture.
+#[cfg(target_arch = "loongarch64")]
+pub type CacheNative<P> = loongarch64::CacheLoongArch64<P>;
+/// The unwind registers type for the native CPU architecture.
+#[cfg(target_arch = "loongarch64")]
+pub type UnwindRegsNative = loongarch64::UnwindRegsLoongArch64;
+/// The unwinder type for the native CPU architecture.
+#[cfg(target_arch = "loongarch64")]
+pub type UnwinderNative<D, P> = loongarch64::UnwinderLoongArch64<D, P>;
 
 /// The unwinder cache for the native CPU architecture.
 #[cfg(target_arch = "x86_64")]

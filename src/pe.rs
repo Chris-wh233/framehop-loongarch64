@@ -8,6 +8,7 @@ pub enum PeUnwinderError {
     MissingStackData(Option<u64>),
     UnwindInfoParseError,
     Aarch64Unsupported,
+    Loongarch64Unsupported,
 }
 
 impl core::fmt::Display for PeUnwinderError {
@@ -28,6 +29,7 @@ impl core::fmt::Display for PeUnwinderError {
             }
             Self::UnwindInfoParseError => write!(f, "failed to parse UnwindInfo"),
             Self::Aarch64Unsupported => write!(f, "AArch64 is not yet supported"),
+            Self::Loongarch64Unsupported => write!(f, "Loongarch64 is not yet supported"),
         }
     }
 }
